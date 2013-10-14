@@ -12,10 +12,21 @@ function total_subscription_menu() {
   $items['verify'] = array(
     'title' => 'Verification mail',
     'page callback' => '_verification_mail',
-    'access arguments' => TRUE,
+    'access arguments' => array('Total Subscription Permission'),
   );
-
   return $items;
+}
+
+/**
+ * To access the total subscription screen we have permission defined below
+ */
+function total_subscription_permission() {
+  return array(
+    'Total Subscription Permission' => array(
+      'title' => t('Total Subscription Permission'),
+      'description' => t('Subscribe to my site.'),
+    ),
+  );
 }
 
 /**
