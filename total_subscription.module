@@ -352,22 +352,22 @@ function subscribe_form_submit($form, &$form_state) {
                 ->condition('ts.entity_type', $form_state['values']['entity_type'])
                 ->condition('ts.entity_id', $form_state['values']['entity_id'])
                 ->range(0, 1);
-        $result=$hash_id->execute()->fetchObject();
+        $result = $hash_id->execute()->fetchObject();
         if ($form_state['values']['entity_type'] == 'node' && !empty($result)) {
             // Checking the taxonomies in a specific node.
             $taxonomy_tids = _get_tids($form_state['values']['entity_id']);
             if ($taxonomy_tids) {
               foreach ($taxonomy_tids as $tids) {
-                $total_subscription = db_delete('total_subscription')
-                      ->condition('mail', $form_state['values']['email'])
+                $hash_delete = db_delete('total_subscription')
+                      ->condition('mail', $form_state['values']['mail'])
                       ->condition('entity_type', 'taxonomy_term')
                       ->condition('entity_id', $tids)
                       ->execute();
               }
             }
             // Checking only nodes.
-            $total_subscription = db_delete('total_subscription')
-                      ->condition('mail', $form_state['values']['email'])
+            $hash_delete = db_delete('total_subscription')
+                      ->condition('mail', $form_state['values']['mail'])
                       ->condition('entity_type', $form_state['values']['entity_type'])
                       ->condition('entity_id', $form_state['values']['entity_id'])
                       ->execute();
