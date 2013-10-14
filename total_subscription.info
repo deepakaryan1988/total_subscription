@@ -1,0 +1,4 @@
+name = Total Subscription
+description = Provides several All Subscription to all users.
+core = 7.x
+dependencies[] = ctools

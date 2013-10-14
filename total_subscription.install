@@ -1,0 +1,62 @@
+<?php
+
+/**
+ * @file
+ * Install, update,and uninstall functions for the total_subscription module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function total_subscription_schema() {
+  $schema = array();
+
+  $schema['total_subscription'] = array(
+    'description' => 'This stores data for the this module',
+    'fields' => array(
+      'mail' => array(
+        'description' => 'This stores all emails from the users',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+      ),
+      'entity_type' => array(
+        'description' => 'This is for determine type of entity',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+      ),
+      'bundle' => array(
+        'description' => 'This is for determine bundle type',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+      ),
+      'entity_id' => array(
+        'description' => 'This is for storing the entity_id',
+        'type' => 'varchar',
+        'length' => '255',
+      ),
+      'hash' => array(
+        'description' => 'This is for storing the hash',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+      ),
+      'active' => array(
+        'description' => 'Active for sending mail or not',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => '0',
+      ),
+    ),
+  );
+  return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function total_subscription_uninstall() {
+  drupal_uninstall_schema('total_subscription');
+}

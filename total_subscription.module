@@ -1,0 +1,608 @@
+<?php
+/**
+ * @file
+ * This module is for subscription.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function total_subscription_menu() {
+  $items = array();
+  $items['verify'] = array(
+    'title' => 'Verification mail',
+    'page callback' => '_verification_mail',
+    'access arguments' => TRUE,
+  );
+
+  return $items;
+}
+
+/**
+ * Callback function for verification of subscription and unsubscription.
+ */
+function _verification_mail() {
+  // Checking the hash thing.
+  $query = db_select('total_subscription', 'ti');
+  $query->fields('ti', array('hash'))
+        ->condition('entity_type', $_GET['entity_type'])
+        ->condition('entity_id', $_GET['entity_id'])
+        ->condition('mail', $_GET['email'])
+        ->range(0, 1);
+  $result = $query->execute()->fetchObject();
+
+  if (isset($_GET['Subscribe'])) {
+    if ($_GET['entity_type'] == 'node' && !empty($result)) {
+      // Checking the taxonomies in a specific node.
+      $taxonomy_tids = _get_tids($_GET['entity_id']);
+      if ($taxonomy_tids) {
+        foreach ($taxonomy_tids as $tids) {
+          $total_subscription = db_update('total_subscription')
+              ->fields(array(
+                'active' => 1,
+              ))
+              ->condition('mail', $_GET['email'])
+              ->condition('entity_type', 'taxonomy_term')
+              ->condition('entity_id', $tids)
+              ->execute();
+        }
+      }
+      // Checking only nodes.
+      $total_subscription = db_update('total_subscription')
+        ->fields(array(
+          'active' => 1,
+        ))
+        ->condition('mail', $_GET['email'])
+        ->condition('entity_type', $_GET['entity_type'])
+        ->condition('entity_id', $_GET['entity_id'])
+        ->execute();
+      drupal_goto('node/'.$_GET['entity_id']);
+    }
+    elseif ($_GET['entity_type'] == 'taxonomy_term' && !empty($result)) {
+      $total_subscription = db_update('total_subscription')
+                ->fields(array(
+                  'active' => 1,
+                ))
+                ->condition('mail', $_GET['email'])
+                ->condition('entity_type', $_GET['entity_type'])
+                ->condition('entity_id', $_GET['entity_id'])
+                ->execute();
+      drupal_goto('taxonomy/term/'.$_GET['entity_id']);
+    }
+  }
+  elseif (isset($_GET['Unsubscribe']) && !empty($result)) {
+    if ($_GET['entity_type'] == 'node' && !empty($result)) {
+      // Checking the taxonomies in a specific node.
+      $taxonomy_tids = _get_tids($_GET['entity_id']);
+      if ($taxonomy_tids) {
+        foreach ($taxonomy_tids as $tids) {
+          $total_subscription = db_delete('total_subscription')
+                ->condition('mail', $_GET['email'])
+                ->condition('entity_type', 'taxonomy_term')
+                ->condition('entity_id', $tids)
+                ->execute();
+        }
+      }
+      // Checking only nodes.
+      $total_subscription = db_delete('total_subscription')
+                ->condition('mail', $_GET['email'])
+                ->condition('entity_type', $_GET['entity_type'])
+                ->condition('entity_id', $_GET['entity_id'])
+                ->execute();
+      drupal_goto('node/'.$_GET['entity_id']);
+    }
+    elseif ($_GET['entity_type'] == 'taxonomy_term' && !empty($result)) {
+      $total_subscription = db_delete('total_subscription')
+                ->condition('mail', $_GET['email'])
+                ->condition('entity_type', $_GET['entity_type'])
+                ->condition('entity_id', $_GET['entity_id'])
+                ->execute();
+      drupal_goto('taxonomy/term/'.$_GET['entity_id']);
+    }
+  }
+}
+
+/**
+ * Implements hook_ctools_plugin_directory().
+ */
+function total_subscription_ctools_plugin_directory($owner, $plugin_type) {
+  if ($owner == 'ctools' && $plugin_type == 'content_types') {
+    return 'plugins/' . $plugin_type;
+  }
+}
+
+/**
+ * Form For the pages.
+ */
+function subscribe_form($form, &$form_state, $contexts) {
+  global $user;
+  if (user_is_logged_in()) {
+    $form['mail'] = array(
+      '#type' => 'hidden',
+      '#value' => $user->mail,
+    );
+  }
+  else {
+    $form['mail'] = array(
+      '#type' => 'textfield',
+      '#attributes' => array(
+        'class' => array('email'),
+        'placeholder' => array('Please Enter your Email.'),
+      ),
+      '#size' => 60,
+      '#maxlength' => 128,
+    );
+  }
+  $form['subscribe'] = array(
+    '#type' => 'submit',
+    '#value' => t('Subscribe'),
+  );
+  $form['unsubscribe'] = array(
+    '#type' => 'submit' ,
+    '#value' => t('Unsubscribe'),
+  );
+  foreach ($contexts as $contexts_values) {
+    if (isset($contexts_values->data)) {
+      switch ($contexts_values->keyword) {
+        case 'node':
+          $form['entity_type'] = array(
+            '#type' => 'hidden',
+            '#name' => 'entity_type',
+            '#value' => $contexts_values->type['2'],
+          );
+
+          $form['bundle'] = array(
+            '#type' => 'hidden',
+            '#name' => 'bundle_type',
+            '#value' => $contexts_values->data->type,
+          );
+          $form['entity_id'] = array(
+            '#type' => 'hidden',
+            '#name' => 'entity_id',
+            '#value' => $contexts_values->data->nid,
+          );
+          break;
+
+        case 'term':
+          $form['entity_type'] = array(
+            '#type' => 'hidden',
+            '#name' => 'entity_type',
+            '#value' => $contexts_values->type['2'],
+          );
+          $form['bundle'] = array(
+            '#type' => 'hidden',
+            '#name' => 'bundle_type',
+            '#value' => $contexts_values->data->name,
+          );
+          $form['entity_id'] = array(
+            '#type' => 'hidden',
+            '#name' => 'entity_id',
+            '#value' => $contexts_values->data->tid,
+          );
+          break;
+      }
+    }
+  }
+  return $form;
+}
+/**
+ * Submit callback for Subscription.
+ */
+function subscribe_form_submit($form, &$form_state) {
+  global $user;
+  switch ($form_state['input']['op']) {
+    case 'Subscribe':
+      $hash = md5(rand(0,1000));
+      if ($form_state['values']['entity_type'] == "node") {
+
+        // Query for the checking whether is already subscribe or not.
+        $query = db_select('total_subscription', 'ti');
+        $query->fields('ti', array('mail'))
+              ->condition('mail', $form_state['values']['mail'])
+              ->condition('entity_type', $form_state['values']['entity_type'])
+              ->condition('entity_id', $form_state['values']['entity_id'])
+              ->range(0, 1);
+        $result = $query->execute()->fetchAll();
+        if (empty($result)) {
+          $total_subscription = db_insert('total_subscription')
+                ->fields(array(
+                  'mail' => $form_state['values']['mail'],
+                  'entity_type' => $form_state['values']['entity_type'],
+                  'bundle' => $form_state['values']['bundle'],
+                  'entity_id' => $form_state['values']['entity_id'],
+                  'hash' => $hash,
+                ))
+                ->execute();
+          if ($user->uid > 0) {
+            $total_subscription = db_update('total_subscription')
+                ->fields(array(
+                  'active' => 1,
+                ))
+                ->condition('mail', $form_state['values']['mail'])
+                ->condition('entity_type', $form_state['values']['entity_type'])
+                ->condition('entity_id', $form_state['values']['entity_id'])
+                ->execute();
+          }
+        }
+        // Checking the taxonomies in a specific node.
+        $taxonomy_tids = _get_tids($form_state['values']['entity_id']);
+        if ($taxonomy_tids) {
+          foreach ($taxonomy_tids as $tids) {
+            $taxonomy_detail = taxonomy_term_load($tids);
+            // Query for the checking whether is already subscribe or not.
+            $query = db_select('total_subscription', 'ti');
+            $query->fields('ti', array('mail'))
+                  ->condition('mail', $form_state['values']['mail'])
+                  ->condition('entity_type', 'taxonomy_term')
+                  ->condition('entity_id', $tids)
+                  ->range(0, 1);
+            $result = $query->execute()->fetchAll();
+
+            if (empty($result)) {
+              $total_subscription = db_insert('total_subscription')
+                  ->fields(array(
+                    'mail' => $form_state['values']['mail'],
+                    'entity_type' => 'taxonomy_term',
+                    'bundle' => $taxonomy_detail->name,
+                    'entity_id' => $tids,
+                    'hash' => $hash,
+                  ))
+                  ->execute();
+              if ($user->uid > 0) {
+                $total_subscription = db_update('total_subscription')
+                  ->fields(array(
+                    'active' => 1,
+                  ))
+                  ->condition('mail', $form_state['values']['mail'])
+                  ->condition('entity_type', 'taxonomy_term')
+                  ->condition('entity_id', $tids)
+                  ->execute();
+              }
+            }
+          }
+        }
+      }
+      elseif ($form_state['values']['entity_type'] == "taxonomy_term") {
+        // Query for the checking whether is already subscribe or not.
+        $query = db_select('total_subscription', 'ti');
+        $query->fields('ti', array('mail'))
+              ->condition('mail', $form_state['values']['mail'])
+              ->condition('entity_type', $form_state['values']['entity_type'])
+              ->condition('entity_id', $form_state['values']['entity_id'])
+              ->range(0, 1);
+        $result = $query->execute()->fetchAll();
+        if (empty($result)) {
+          $total_subscription = db_insert('total_subscription')
+                ->fields(array(
+                  'mail' => $form_state['values']['mail'],
+                  'entity_type' => $form_state['values']['entity_type'],
+                  'bundle' => $form_state['values']['bundle'],
+                  'entity_id' => $form_state['values']['entity_id'],
+                  'hash' => $hash,
+                ))
+                ->execute();
+          if ($user->uid > 0) {
+            $total_subscription = db_update('total_subscription')
+                ->fields(array(
+                  'active' => 1,
+                ))
+                ->condition('mail', $form_state['values']['mail'])
+                ->condition('entity_type', $form_state['values']['entity_type'])
+                ->condition('entity_id', $form_state['values']['entity_id'])
+                ->execute();
+          }
+        }
+      }
+      if ($user->uid == 0) {
+        $form_state['values']['hash'] = $hash;
+        // Sending mails.
+        total_subscription_mail_send($form_state['values']);
+      }
+      drupal_set_message(t('Thanks for Subscription. Further instruction will be send to your email.'), 'status', FALSE);
+      break;
+
+    case 'Unsubscribe':
+      $hash = md5(rand(0,1000));
+      if ($form_state['values']['entity_type'] == "node") {
+
+        // Checking the taxonomies in a specific node.
+        $taxonomy_tids = _get_tids($form_state['values']['entity_id']);
+        if ($taxonomy_tids) {
+          foreach ($taxonomy_tids as $tids) {
+            $total_subscription = db_update('total_subscription')
+                ->fields(array(
+                  'hash' => $hash,
+                ))
+                ->condition('mail', $form_state['values']['mail'])
+                ->condition('entity_type', 'taxonomy_term')
+                ->condition('entity_id', $tids)
+                ->execute();
+          }
+        }
+        $total_subscription = db_update('total_subscription')
+                ->fields(array(
+                  'hash' => $hash,
+                ))
+                ->condition('mail', $form_state['values']['mail'])
+                ->condition('entity_type', $form_state['values']['entity_type'])
+                ->condition('entity_id', $form_state['values']['entity_id'])
+                ->execute();
+      }
+      elseif ($form_state['values']['entity_type'] == "taxonomy_term") {
+        $total_subscription = db_update('total_subscription')
+                ->fields(array(
+                  'hash' => $hash,
+                ))
+                ->condition('mail', $form_state['values']['mail'])
+                ->condition('entity_type', $form_state['values']['entity_type'])
+                ->condition('entity_id', $form_state['values']['entity_id'])
+                ->execute();
+      }
+
+      if ($user->uid == 0) {
+        $form_state['values']['hash'] = $hash;
+        // Sending mails.
+        total_subscription_mail_send($form_state['values']);
+      }
+      else{
+        // Checking the hash thing.
+        $hash_id = db_select('total_subscription', 'ts');
+        $hash_id->fields('ts', array('bundle'))
+                ->condition('ts.mail', $form_state['values']['mail'])
+                ->condition('ts.entity_type', $form_state['values']['entity_type'])
+                ->condition('ts.entity_id', $form_state['values']['entity_id'])
+                ->range(0, 1);
+        $result=$hash_id->execute()->fetchObject();
+        if ($form_state['values']['entity_type'] == 'node' && !empty($result)) {
+            // Checking the taxonomies in a specific node.
+            $taxonomy_tids = _get_tids($form_state['values']['entity_id']);
+            if ($taxonomy_tids) {
+              foreach ($taxonomy_tids as $tids) {
+                $total_subscription = db_delete('total_subscription')
+                      ->condition('mail', $form_state['values']['email'])
+                      ->condition('entity_type', 'taxonomy_term')
+                      ->condition('entity_id', $tids)
+                      ->execute();
+              }
+            }
+            // Checking only nodes.
+            $total_subscription = db_delete('total_subscription')
+                      ->condition('mail', $form_state['values']['email'])
+                      ->condition('entity_type', $form_state['values']['entity_type'])
+                      ->condition('entity_id', $form_state['values']['entity_id'])
+                      ->execute();
+          }
+          elseif ($form_state['values']['entity_type'] == 'taxonomy_term' && !empty($result)) {
+            $hash_delete = db_delete('total_subscription')
+                      ->condition('mail', $form_state['values']['mail'])
+                      ->condition('entity_type', $form_state['values']['entity_type'])
+                      ->condition('entity_id', $form_state['values']['entity_id'])
+                      ->execute();
+          }
+      }
+      drupal_set_message(t('You are unsubscribe. Further instruction will be send to your email. Hope you will return some day'), 'status', FALSE);
+      break;
+  }
+}
+
+/**
+ * Form validation.
+ */
+function subscribe_form_validate($form, &$form_state) {
+  $query = db_select('total_subscription', 'ti');
+  $query->fields('ti', array('mail'))
+        ->condition('mail', $form_state['values']['mail'])
+        ->condition('entity_type', $form_state['values']['entity_type'])
+        ->condition('entity_id', $form_state['values']['entity_id'])
+        ->range(0, 1);
+  $result = $query->execute()->fetchAll();
+  switch ($form_state['input']['op']) {
+    case 'Subscribe':
+      // Query for the checking whether is already subscribe or not.
+        if($result){
+          form_set_error('subscribe', t('You are already subscribed.'));
+        }
+      break;
+
+    case 'Unsubscribe':
+      if(empty($result)){
+          form_set_error('unsubscribe', t('First, you have to subscribe, then you are allow to unsubscribe.'));
+        }
+      break;
+  }
+
+  if (!valid_email_address($form_state['values']['mail'])) {
+    form_set_error('mail', t('That e-mail address is not valid.'));
+  }
+}
+
+/**
+ * Function to retrieve tids associate with the specific node.
+ */
+function _get_tids($nid) {
+  $query = db_select('taxonomy_index', 'ti');
+  $query->fields('ti', array('tid'))
+          ->condition('ti.nid', $nid);
+  $data = $query->execute();
+  while ($result = $data->fetchObject()) {
+    $term[] = $result->tid;
+  }
+  return $term;
+}
+
+/**
+ * Implements hook_mail().
+ *
+ * This hook defines a list of possible e-mail templates that this module can
+ * send. Each e-mail is given a unique identifier, or 'key'.
+ *
+ * $message comes in with some standard properties already set: 'to' address,
+ * 'from' address, and a set of default 'headers' from drupal_mail(). The goal
+ * of hook_mail() is to set the message's 'subject' and 'body' properties, as
+ * well as make any adjustments to the headers that are necessary.
+ *
+ * The $params argument is an array which can hold any additional data required
+ * to build the mail subject and body; for example, user-entered form data, or
+ * some context information as to where the mail request came from.
+ *
+ * Note that hook_mail() is not actually a hook. It is only called for a single
+ * module, the module named in the first argument of drupal_mail(). So it's
+ * a callback of a type, but not a hook.
+ */
+function total_subscription_mail($key, &$message, $params) {
+  global $user;
+  global $base_url;
+  // Each message is associated with a language, which may or may not be the
+  // current user's selected language, depending on the type of e-mail being
+  // sent. This $options array is used later in the t() calls for subject
+  // and body to ensure the proper translation takes effect.
+  $options = array(
+    'langcode' => $message['language']->language,
+  );
+
+  switch ($key) {
+    // Send a simple message from the contact form.
+    case 'total_subscription_message':
+      $message['subject'] = t('E-mail sent from @site-name', array('@site-name' => variable_get('site_name', 'Drupal')), $options);
+      // Note that the message body is an array, not a string.
+      $message['body'][] = t('@name sent you the following message:', array('@name' => $user->name), $options);
+      // Because this is just user-entered text, we do not need to translate it.
+      // Since user-entered text may have unintentional HTML entities in it like
+      // '<' or '>', we need to make sure these entities are properly escaped,
+      // as the body will later be transformed from HTML to text, meaning
+      // that a normal use of '<' will result in truncation of the message.
+      $message['body'][] = check_plain($params['message']);
+      $message['body'][] .= $base_url . '/verify?' . '&email=' . $params['mail'] . '&entity_type=' . $params['entity_type'] . '&entity_id=' . $params['entity_id'] . '&' . $params['op'] . '=' . $params['hash'];
+      break;
+
+    case 'total_subscription_node_message':
+      error_log(print_r($params),TRUE);
+      error_log(print_r($message),TRUE);
+      $message['subject'] = 'chutya';
+      $message['body'] = 'hii';
+      // Because this is just user-entered text, we do not need to translate it.
+      // Since user-entered text may have unintentional HTML entities in it like
+      // '<' or '>', we need to make sure these entities are properly escaped,
+      // as the body will later be transformed from HTML to text, meaning
+      // that a normal use of '<' will result in truncation of the message.
+
+      break;
+  }
+}
+
+/**
+ * Sends an e-mail.
+ *
+ * @param $form_values
+ *   An array of values from the contact form fields that were submitted.
+ *   There are just two relevant items: $form_values['email'] and
+ *   $form_values['message'].
+ */
+function total_subscription_mail_send($form_values) {
+  // All system mails need to specify the module and template key (mirrored from
+  // hook_mail()) that the message they want to send comes from.
+  $module = 'total_subscription';
+  $key = 'total_subscription_message';
+
+  // Specify 'to' and 'from' addresses.
+  $to = $form_values['mail'];
+  $from = variable_get('site_mail', 'admin@example.com');
+
+  // "params" loads in additional context for email content completion in
+  // hook_mail(). In this case, we want to pass in the values the user entered
+  // into the form, which include the message body in $form_values['message'].
+  $params = $form_values;
+
+  // The language of the e-mail. This will one of three values:
+  // * user_preferred_language(): Used for sending mail to a particular website
+  //   user, so that the mail appears in their preferred language.
+  // * global $language: Used when sending a mail back to the user currently
+  //   viewing the site. This will send it in the language they're currently
+  //   using.
+  // * language_default(): Used when sending mail to a pre-existing, 'neutral'
+  //   address, such as the system e-mail address, or when you're unsure of the
+  //   language preferences of the intended recipient.
+  //
+  // Since in our case, we are sending a message to a random e-mail address that
+  // is not necessarily tied to a user account, we will use the site's default
+  // language.
+  $language = language_default();
+
+  // Whether or not to automatically send the mail when drupal_mail() is
+  // called. This defaults to TRUE, and is normally what you want unless you
+  // need to do additional processing before drupal_mail_send() is called.
+  $send = TRUE;
+  // Send the mail, and check for success. Note that this does not guarantee
+  // message delivery; only that there were no PHP-related issues encountered
+  // while sending.
+  $result = drupal_mail($module, $key, $to, $language, $params, $from, $send);
+  if ($result['result'] == TRUE) {
+    drupal_set_message(t('Your message has been sent.'));
+  }
+  else {
+    drupal_set_message(t('There was a problem sending your message and it was not sent.'), 'error');
+  }
+
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function total_subscription_node_presave($node) {
+  if(($node->original->status == 0 && $node->status == 1) || $node->status == 1){
+    total_subscription_node_mail($node);
+  }
+}
+
+/**
+ * Sends an e-mail.
+ *
+ * @param $node
+ *   An array of values from the node_presave form that were submitted.
+ */
+function total_subscription_node_mail($node) {
+  // All system mails need to specify the module and template key (mirrored from
+  // hook_mail()) that the message they want to send comes from.
+  $module = 'total_subscription';
+  $key = 'total_subscription_node_message';
+
+  // Specify 'to' and 'from' addresses.
+  $to = 'deepakaryan1988@gmail.com';
+  $from = variable_get('site_mail', 'admin@example.com');
+
+  // "params" loads in additional context for email content completion in
+  // hook_mail(). In this case, we want to pass in the values the user entered
+  // into the form, which include the message body in $form_values['message'].
+  $params = (array) $node;
+
+  // The language of the e-mail. This will one of three values:
+  // * user_preferred_language(): Used for sending mail to a particular website
+  //   user, so that the mail appears in their preferred language.
+  // * global $language: Used when sending a mail back to the user currently
+  //   viewing the site. This will send it in the language they're currently
+  //   using.
+  // * language_default(): Used when sending mail to a pre-existing, 'neutral'
+  //   address, such as the system e-mail address, or when you're unsure of the
+  //   language preferences of the intended recipient.
+  //
+  // Since in our case, we are sending a message to a random e-mail address that
+  // is not necessarily tied to a user account, we will use the site's default
+  // language.
+  $language = language_default();
+
+  // Whether or not to automatically send the mail when drupal_mail() is
+  // called. This defaults to TRUE, and is normally what you want unless you
+  // need to do additional processing before drupal_mail_send() is called.
+  $send = TRUE;
+  // Send the mail, and check for success. Note that this does not guarantee
+  // message delivery; only that there were no PHP-related issues encountered
+  // while sending.
+  $result = drupal_mail($module, $key, $to, $language, $params, $from, $send);
+  if ($result['result'] == TRUE) {
+    drupal_set_message(t('Your message has been sent.'));
+  }
+  else {
+    drupal_set_message(t('There was a problem sending your message and it was not sent.'), 'error');
+  }
+
+}
