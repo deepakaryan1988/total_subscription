@@ -480,27 +480,129 @@ function subscribe_form_submit($form, &$form_state) {
  * Form validation.
  */
 function subscribe_form_validate($form, &$form_state) {
-  /*$query = db_select('total_subscription', 'ti');
-  $query->fields('ti', array('mail'))
-        ->condition('mail', $form_state['values']['mail'])
-        ->condition('entity_type', $form_state['values']['entity_type'])
-        ->condition('entity_id', $form_state['values']['entity_id'])
-        ->range(0, 1);
-  $result = $query->execute()->fetchAll();
   switch ($form_state['input']['op']) {
     case 'Subscribe':
-      // Query for the checking whether is already subscribe or not.
-      if ($result) {
-        form_set_error('subscribe', t('You are already subscribed.'));
+      if ($form_state['values']['entity_type'] == "node") {
+        // Query for the checking whether is already subscribe or not.
+        $query = db_select('total_subscription', 'ti');
+        $query->fields('ti', array('mail'))
+              ->condition('mail', $form_state['values']['mail'])
+              ->condition('entity_type', $form_state['values']['entity_type'])
+              ->condition('entity_id', $form_state['values']['entity_id'])
+              ->range(0, 1);
+        $result = $query->execute()->fetchAll();
+        if (!empty($result)) {
+          if ($form_state['values']['content_type_name'] == 1) {
+            $node_detail = node_load($form_state['values']['entity_id']);
+            form_set_error('subscribe', t('You are already subscribed to ') . $node_detail->type);
+          }
+        }
+
+        $array_value = 0;
+        foreach ($form_state['values']['node_taxonomy'] as $node_tid => $values) {
+          $array_value += $values;
+        }
+        // Checking the taxonomies.
+        if ($form_state['values']['node_taxonomy'] && $array_value) {
+          foreach ($form_state['values']['node_taxonomy'] as $tid => $value) {
+            if ($value != 0) {
+              $checked_tids[] = $tid;
+            }
+          }
+          foreach ($checked_tids as $tids) {
+            $taxonomy_detail = taxonomy_term_load($tids);
+            // Query for the checking whether is already subscribe or not.
+            $query = db_select('total_subscription', 'ti');
+            $query->fields('ti', array('mail'))
+                  ->condition('mail', $form_state['values']['mail'])
+                  ->condition('entity_type', 'taxonomy_term')
+                  ->condition('entity_id', $tids)
+                  ->range(0, 1);
+            $result = $query->execute()->fetchAll();
+            if (!empty($result)) {
+              $taxonomy_detail = taxonomy_term_load($tids);
+              form_set_error('subscribe', t('You are already subscribed to ') . $taxonomy_detail->name);
+            }
+          }
+        }
+      }
+      elseif ($form_state['values']['entity_type'] == "taxonomy_term") {
+        // Query for the checking whether is already subscribe or not.
+        $query = db_select('total_subscription', 'ti');
+        $query->fields('ti', array('mail'))
+              ->condition('mail', $form_state['values']['mail'])
+              ->condition('entity_type', $form_state['values']['entity_type'])
+              ->condition('entity_id', $form_state['values']['entity_id'])
+              ->range(0, 1);
+        $result = $query->execute()->fetchAll();
+        if (!empty($result)) {
+          $taxonomy_detail = taxonomy_term_load($form_state['values']['entity_id']);
+          form_set_error('subscribe', t('You are already subscribed to ') . $taxonomy_detail->name);
+        }
       }
       break;
 
     case 'Unsubscribe':
-      if (empty($result)) {
-        form_set_error('unsubscribe', t('First, you have to subscribe, then you are allow to unsubscribe.'));
+      if ($form_state['values']['entity_type'] == "node") {
+        // Query for the checking whether is already subscribe or not.
+        $query = db_select('total_subscription', 'ti');
+        $query->fields('ti', array('mail'))
+              ->condition('mail', $form_state['values']['mail'])
+              ->condition('entity_type', $form_state['values']['entity_type'])
+              ->condition('entity_id', $form_state['values']['entity_id'])
+              ->range(0, 1);
+        $result = $query->execute()->fetchAll();
+        if (empty($result)) {
+          if ($form_state['values']['content_type_name'] == 1) {
+            $node_detail = node_load($form_state['values']['entity_id']);
+            form_set_error('unsubscribe', t('You are not subscribe to ') . $node_detail->type);
+          }
+        }
+
+        $array_value = 0;
+        foreach ($form_state['values']['node_taxonomy'] as $node_tid => $values) {
+          $array_value += $values;
+        }
+        // Checking the taxonomies.
+        if ($form_state['values']['node_taxonomy'] && $array_value) {
+          foreach ($form_state['values']['node_taxonomy'] as $tid => $value) {
+            if ($value != 0) {
+              $checked_tids[] = $tid;
+            }
+          }
+          foreach ($checked_tids as $tids) {
+            $taxonomy_detail = taxonomy_term_load($tids);
+            // Query for the checking whether is already subscribe or not.
+            $query = db_select('total_subscription', 'ti');
+            $query->fields('ti', array('mail'))
+                  ->condition('mail', $form_state['values']['mail'])
+                  ->condition('entity_type', 'taxonomy_term')
+                  ->condition('entity_id', $tids)
+                  ->range(0, 1);
+            $result = $query->execute()->fetchAll();
+            if (empty($result)) {
+              $taxonomy_detail = taxonomy_term_load($tids);
+              form_set_error('unsubscribe', t('You are not subscribe to ') . $taxonomy_detail->name);
+            }
+          }
+        }
+      }
+      elseif ($form_state['values']['entity_type'] == "taxonomy_term") {
+        // Query for the checking whether is already subscribe or not.
+        $query = db_select('total_subscription', 'ti');
+        $query->fields('ti', array('mail'))
+              ->condition('mail', $form_state['values']['mail'])
+              ->condition('entity_type', $form_state['values']['entity_type'])
+              ->condition('entity_id', $form_state['values']['entity_id'])
+              ->range(0, 1);
+        $result = $query->execute()->fetchAll();
+        if (empty($result)) {
+          $taxonomy_detail = taxonomy_term_load($form_state['values']['entity_id']);
+          form_set_error('unsubscribe', t('You are not subscribe to ') . $taxonomy_detail->name);
+        }
       }
       break;
-  }*/
+  }
 
   if (!valid_email_address($form_state['values']['mail'])) {
     form_set_error('mail', t('That e-mail address is not valid.'));
