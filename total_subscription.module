@@ -18,7 +18,7 @@ function total_subscription_menu() {
 }
 
 /**
- * To access the total subscription screen we have permission defined below
+ * To access the total subscription screen we have permission defined below.
  */
 function total_subscription_permission() {
   return array(
@@ -33,60 +33,85 @@ function total_subscription_permission() {
  * Callback function for verification of subscription and unsubscription.
  */
 function _verification_mail() {
-  // Checking the hash thing.
-  $query = db_select('total_subscription', 'ti');
-  $query->fields('ti', array('hash'))
-        ->condition('entity_type', $_GET['entity_type'])
-        ->condition('entity_id', $_GET['entity_id'])
-        ->condition('mail', $_GET['email'])
-        ->range(0, 1);
-  $result = $query->execute()->fetchObject();
+  $explode_array = explode('-', $_GET['entity_type']);
+  $entity_type = $explode_array['0'];
+  $select_node_type = $explode_array['1'];
 
   if (isset($_GET['Subscribe'])) {
-    if ($_GET['entity_type'] == 'node' && !empty($result)) {
+    if ($entity_type == 'node') {
       // Checking the taxonomies in a specific node.
-      $taxonomy_tids = _get_tids($_GET['entity_id']);
-      if ($taxonomy_tids) {
-        foreach ($taxonomy_tids as $tids) {
+      foreach (unserialize($_GET['tids']) as $tids) {
+        // Checking the hash thing.
+        $hash_check = db_select('total_subscription', 'ti');
+        $hash_check->fields('ti', array('hash'))
+              ->condition('ti.entity_type', 'taxonomy_term')
+              ->condition('ti.entity_id', $tids)
+              ->condition('ti.mail', $_GET['email'])
+              ->range(0, 1);
+        $result = $hash_check->execute()->fetchObject();
+        if (!empty($result)) {
           $total_subscription = db_update('total_subscription')
-              ->fields(array(
-                'active' => 1,
-              ))
-              ->condition('mail', $_GET['email'])
-              ->condition('entity_type', 'taxonomy_term')
-              ->condition('entity_id', $tids)
-              ->execute();
+            ->fields(array('active' => 1))
+            ->condition('mail', $_GET['email'])
+            ->condition('entity_type', 'taxonomy_term')
+            ->condition('entity_id', $tids)
+            ->execute();
         }
       }
-      // Checking only nodes.
-      $total_subscription = db_update('total_subscription')
-        ->fields(array(
-          'active' => 1,
-        ))
-        ->condition('mail', $_GET['email'])
-        ->condition('entity_type', $_GET['entity_type'])
-        ->condition('entity_id', $_GET['entity_id'])
-        ->execute();
+      if ($select_node_type == 1) {
+        // Checking the hash thing.
+        $hash = db_select('total_subscription', 'ti');
+        $hash->fields('ti', array('hash'))
+              ->condition('entity_type', $entity_type)
+              ->condition('entity_id', $_GET['entity_id'])
+              ->condition('mail', $_GET['email'])
+              ->range(0, 1);
+        $result = $hash->execute()->fetchObject();
+        // Checking only nodes.
+        if (!empty($result)) {
+          $total_subscription = db_update('total_subscription')
+            ->fields(array('active' => 1))
+            ->condition('mail', $_GET['email'])
+            ->condition('entity_type', $entity_type)
+            ->condition('entity_id', $_GET['entity_id'])
+            ->execute();
+        }
+      }
       drupal_goto('node/' . $_GET['entity_id']);
     }
-    elseif ($_GET['entity_type'] == 'taxonomy_term' && !empty($result)) {
-      $total_subscription = db_update('total_subscription')
-                ->fields(array(
-                  'active' => 1,
-                ))
+    elseif ($entity_type == 'taxonomy_term') {
+      // Checking the hash thing.
+        $hash = db_select('total_subscription', 'ti');
+        $hash->fields('ti', array('hash'))
+              ->condition('entity_type', $entity_type)
+              ->condition('entity_id', $_GET['entity_id'])
+              ->condition('mail', $_GET['email'])
+              ->range(0, 1);
+        $result = $hash->execute()->fetchObject();
+        if (!empty($result)) {
+          $total_subscription = db_update('total_subscription')
+                ->fields(array('active' => 1))
                 ->condition('mail', $_GET['email'])
-                ->condition('entity_type', $_GET['entity_type'])
+                ->condition('entity_type', $entity_type)
                 ->condition('entity_id', $_GET['entity_id'])
                 ->execute();
+        }
       drupal_goto('taxonomy/term/' . $_GET['entity_id']);
     }
   }
-  elseif (isset($_GET['Unsubscribe']) && !empty($result)) {
-    if ($_GET['entity_type'] == 'node' && !empty($result)) {
+  elseif (isset($_GET['Unsubscribe'])) {
+    if ($entity_type == 'node') {
       // Checking the taxonomies in a specific node.
-      $taxonomy_tids = _get_tids($_GET['entity_id']);
-      if ($taxonomy_tids) {
-        foreach ($taxonomy_tids as $tids) {
+      foreach (unserialize($_GET['tids']) as $tids) {
+        // Checking the hash thing.
+        $hash_check = db_select('total_subscription', 'ti');
+        $hash_check->fields('ti', array('hash'))
+              ->condition('ti.entity_type', 'taxonomy_term')
+              ->condition('ti.entity_id', $tids)
+              ->condition('ti.mail', $_GET['email'])
+              ->range(0, 1);
+        $result = $hash_check->execute()->fetchObject();
+        if (!empty($result)) {
           $total_subscription = db_delete('total_subscription')
                 ->condition('mail', $_GET['email'])
                 ->condition('entity_type', 'taxonomy_term')
@@ -95,19 +120,42 @@ function _verification_mail() {
         }
       }
       // Checking only nodes.
-      $total_subscription = db_delete('total_subscription')
+      if ($select_node_type == 1) {
+        // Checking the hash thing.
+        $hash = db_select('total_subscription', 'ti');
+        $hash->fields('ti', array('hash'))
+              ->condition('entity_type', $entity_type)
+              ->condition('entity_id', $_GET['entity_id'])
+              ->condition('mail', $_GET['email'])
+              ->range(0, 1);
+        $result = $hash->execute()->fetchObject();
+        // Checking only nodes.
+        if (!empty($result)) {
+          $total_subscription = db_delete('total_subscription')
                 ->condition('mail', $_GET['email'])
-                ->condition('entity_type', $_GET['entity_type'])
+                ->condition('entity_type', $entity_type)
                 ->condition('entity_id', $_GET['entity_id'])
                 ->execute();
+        }
+      }
       drupal_goto('node/' . $_GET['entity_id']);
     }
-    elseif ($_GET['entity_type'] == 'taxonomy_term' && !empty($result)) {
-      $total_subscription = db_delete('total_subscription')
+    elseif ($entity_type == 'taxonomy_term') {
+      // Checking the hash thing.
+        $hash = db_select('total_subscription', 'ti');
+        $hash->fields('ti', array('hash'))
+              ->condition('entity_type', $entity_type)
+              ->condition('entity_id', $_GET['entity_id'])
+              ->condition('mail', $_GET['email'])
+              ->range(0, 1);
+        $result = $hash->execute()->fetchObject();
+        if (!empty($result)) {
+          $total_subscription = db_delete('total_subscription')
                 ->condition('mail', $_GET['email'])
-                ->condition('entity_type', $_GET['entity_type'])
+                ->condition('entity_type', $entity_type)
                 ->condition('entity_id', $_GET['entity_id'])
                 ->execute();
+        }
       drupal_goto('taxonomy/term/' . $_GET['entity_id']);
     }
   }
@@ -127,35 +175,34 @@ function total_subscription_ctools_plugin_directory($owner, $plugin_type) {
  */
 function subscribe_form($form, &$form_state, $contexts) {
   global $user;
-  if (user_is_logged_in()) {
-    $form['mail'] = array(
-      '#type' => 'hidden',
-      '#value' => $user->mail,
-    );
-  }
-  else {
-    $form['mail'] = array(
-      '#type' => 'textfield',
-      '#attributes' => array(
-        'class' => array('email'),
-        'placeholder' => array('Please Enter your Email.'),
-      ),
-      '#size' => 60,
-      '#maxlength' => 128,
-    );
-  }
-  $form['subscribe'] = array(
-    '#type' => 'submit',
-    '#value' => t('Subscribe'),
-  );
-  $form['unsubscribe'] = array(
-    '#type' => 'submit' ,
-    '#value' => t('Unsubscribe'),
-  );
   foreach ($contexts as $contexts_values) {
     if (isset($contexts_values->data)) {
       switch ($contexts_values->keyword) {
         case 'node':
+          $taxonomy_tids = _get_tids($contexts_values->data->nid);
+          if (isset($taxonomy_tids)) {
+            foreach ($taxonomy_tids as $tids) {
+              $taxonomy_detail = taxonomy_term_load($tids);
+              $taxonomy_name[$tids] = $taxonomy_detail->name;
+            }
+            $form['node_taxonomy'] = array(
+              '#type' => 'checkboxes',
+              '#title' => t('Subscribe to this category:'),
+              '#options' => $taxonomy_name,
+            );
+          }
+          $form['content_type_name'] = array(
+            '#type' => 'checkbox',
+            '#name' => 'content_type_name',
+            '#title' => t('Subscribe to these type of ') . $contexts_values->data->type,
+          );
+
+          /*$form[$contexts_values->data->nid] = array(
+            '#type' => 'checkbox',
+            '#name' => $contexts_values->data->nid,
+            '#title' => t('Subscribe to ' . $contexts_values->data->title),
+          );*/
+
           $form['entity_type'] = array(
             '#type' => 'hidden',
             '#name' => 'entity_type',
@@ -194,6 +241,31 @@ function subscribe_form($form, &$form_state, $contexts) {
       }
     }
   }
+  if (user_is_logged_in()) {
+    $form['mail'] = array(
+      '#type' => 'hidden',
+      '#value' => $user->mail,
+    );
+  }
+  else {
+    $form['mail'] = array(
+      '#type' => 'textfield',
+      '#attributes' => array(
+        'class' => array('email'),
+        'placeholder' => array('Please Enter your Email.'),
+      ),
+      '#size' => 60,
+      '#maxlength' => 128,
+    );
+  }
+  $form['subscribe'] = array(
+    '#type' => 'submit',
+    '#value' => t('Subscribe'),
+  );
+  $form['unsubscribe'] = array(
+    '#type' => 'submit' ,
+    '#value' => t('Unsubscribe'),
+  );
   return $form;
 }
 /**
@@ -205,7 +277,6 @@ function subscribe_form_submit($form, &$form_state) {
     case 'Subscribe':
       $hash = md5(rand(0, 1000));
       if ($form_state['values']['entity_type'] == "node") {
-
         // Query for the checking whether is already subscribe or not.
         $query = db_select('total_subscription', 'ti');
         $query->fields('ti', array('mail'))
@@ -215,7 +286,8 @@ function subscribe_form_submit($form, &$form_state) {
               ->range(0, 1);
         $result = $query->execute()->fetchAll();
         if (empty($result)) {
-          $total_subscription = db_insert('total_subscription')
+          if ($form_state['values']['content_type_name'] == 1) {
+            $total_subscription = db_insert('total_subscription')
                 ->fields(array(
                   'mail' => $form_state['values']['mail'],
                   'entity_type' => $form_state['values']['entity_type'],
@@ -224,21 +296,29 @@ function subscribe_form_submit($form, &$form_state) {
                   'hash' => $hash,
                 ))
                 ->execute();
-          if ($user->uid > 0) {
-            $total_subscription = db_update('total_subscription')
-                ->fields(array(
-                  'active' => 1,
-                ))
-                ->condition('mail', $form_state['values']['mail'])
-                ->condition('entity_type', $form_state['values']['entity_type'])
-                ->condition('entity_id', $form_state['values']['entity_id'])
-                ->execute();
+            if ($user->uid > 0) {
+              $total_subscription = db_update('total_subscription')
+                  ->fields(array('active' => 1))
+                  ->condition('mail', $form_state['values']['mail'])
+                  ->condition('entity_type', $form_state['values']['entity_type'])
+                  ->condition('entity_id', $form_state['values']['entity_id'])
+                  ->execute();
+            }
           }
         }
-        // Checking the taxonomies in a specific node.
-        $taxonomy_tids = _get_tids($form_state['values']['entity_id']);
-        if ($taxonomy_tids) {
-          foreach ($taxonomy_tids as $tids) {
+
+        $array_value = 0;
+        foreach ($form_state['values']['node_taxonomy'] as $node_tid => $values) {
+          $array_value += $values;
+        }
+        // Checking the taxonomies.
+        if ($form_state['values']['node_taxonomy'] && $array_value) {
+          foreach ($form_state['values']['node_taxonomy'] as $tid => $value) {
+            if ($value != 0) {
+              $checked_tids[] = $tid;
+            }
+          }
+          foreach ($checked_tids as $tids) {
             $taxonomy_detail = taxonomy_term_load($tids);
             // Query for the checking whether is already subscribe or not.
             $query = db_select('total_subscription', 'ti');
@@ -261,9 +341,7 @@ function subscribe_form_submit($form, &$form_state) {
                   ->execute();
               if ($user->uid > 0) {
                 $total_subscription = db_update('total_subscription')
-                  ->fields(array(
-                    'active' => 1,
-                  ))
+                  ->fields(array('active' => 1))
                   ->condition('mail', $form_state['values']['mail'])
                   ->condition('entity_type', 'taxonomy_term')
                   ->condition('entity_id', $tids)
@@ -294,9 +372,7 @@ function subscribe_form_submit($form, &$form_state) {
                 ->execute();
           if ($user->uid > 0) {
             $total_subscription = db_update('total_subscription')
-                ->fields(array(
-                  'active' => 1,
-                ))
+                ->fields(array('active' => 1))
                 ->condition('mail', $form_state['values']['mail'])
                 ->condition('entity_type', $form_state['values']['entity_type'])
                 ->condition('entity_id', $form_state['values']['entity_id'])
@@ -308,68 +384,71 @@ function subscribe_form_submit($form, &$form_state) {
         $form_state['values']['hash'] = $hash;
         // Sending mails.
         total_subscription_mail_send($form_state['values']);
+        drupal_set_message(t('Thanks for Subscription. Further instruction will be send to your email.'), 'status', FALSE);
       }
-      drupal_set_message(t('Thanks for Subscription. Further instruction will be send to your email.'), 'status', FALSE);
       break;
 
     case 'Unsubscribe':
-      $hash = md5(rand(0,1000));
-      if ($form_state['values']['entity_type'] == "node") {
-
-        // Checking the taxonomies in a specific node.
-        $taxonomy_tids = _get_tids($form_state['values']['entity_id']);
-        if ($taxonomy_tids) {
-          foreach ($taxonomy_tids as $tids) {
+      $hash = md5(rand(0, 1000));
+      if ($user->uid == 0) {
+        if ($form_state['values']['entity_type'] == "node") {
+          $array_value = 0;
+          foreach ($form_state['values']['node_taxonomy'] as $node_tid => $values) {
+            $array_value += $values;
+          }
+          // Checking the taxonomies in a specific node.
+          if ($form_state['values']['node_taxonomy'] && $array_value) {
+            foreach ($form_state['values']['node_taxonomy'] as $tid => $value) {
+              if ($value != 0) {
+                $checked_tids[] = $tid;
+              }
+            }
+            foreach ($checked_tids as $tids) {
+              $total_subscription = db_update('total_subscription')
+                  ->fields(array('hash' => $hash))
+                  ->condition('mail', $form_state['values']['mail'])
+                  ->condition('entity_type', 'taxonomy_term')
+                  ->condition('entity_id', $tids)
+                  ->execute();
+            }
+          }
+          if ($form_state['values']['content_type_name'] == 1) {
             $total_subscription = db_update('total_subscription')
-                ->fields(array(
-                  'hash' => $hash,
-                ))
-                ->condition('mail', $form_state['values']['mail'])
-                ->condition('entity_type', 'taxonomy_term')
-                ->condition('entity_id', $tids)
-                ->execute();
+                  ->fields(array('hash' => $hash))
+                  ->condition('mail', $form_state['values']['mail'])
+                  ->condition('entity_type', $form_state['values']['entity_type'])
+                  ->condition('entity_id', $form_state['values']['entity_id'])
+                  ->execute();
           }
         }
-        $total_subscription = db_update('total_subscription')
-                ->fields(array(
-                  'hash' => $hash,
-                ))
-                ->condition('mail', $form_state['values']['mail'])
-                ->condition('entity_type', $form_state['values']['entity_type'])
-                ->condition('entity_id', $form_state['values']['entity_id'])
-                ->execute();
-      }
-      elseif ($form_state['values']['entity_type'] == "taxonomy_term") {
-        $total_subscription = db_update('total_subscription')
-                ->fields(array(
-                  'hash' => $hash,
-                ))
-                ->condition('mail', $form_state['values']['mail'])
-                ->condition('entity_type', $form_state['values']['entity_type'])
-                ->condition('entity_id', $form_state['values']['entity_id'])
-                ->execute();
-      }
-
-      if ($user->uid == 0) {
+        elseif ($form_state['values']['entity_type'] == "taxonomy_term") {
+          $total_subscription = db_update('total_subscription')
+                  ->fields(array('hash' => $hash))
+                  ->condition('mail', $form_state['values']['mail'])
+                  ->condition('entity_type', $form_state['values']['entity_type'])
+                  ->condition('entity_id', $form_state['values']['entity_id'])
+                  ->execute();
+        }
         $form_state['values']['hash'] = $hash;
         // Sending mails.
         total_subscription_mail_send($form_state['values']);
+        drupal_set_message(t('You are unsubscribe. Further instruction will be send to your email. Hope you will return some day'), 'status', FALSE);
       }
       else {
-        // Checking the hash thing.
-        $hash_id = db_select('total_subscription', 'ts');
-        $hash_id->fields('ts', array('bundle'))
-                ->condition('ts.mail', $form_state['values']['mail'])
-                ->condition('ts.entity_type', $form_state['values']['entity_type'])
-                ->condition('ts.entity_id', $form_state['values']['entity_id'])
-                ->range(0, 1);
-        $result = $hash_id->execute()->fetchObject();
-        if ($form_state['values']['entity_type'] == 'node' && !empty($result)) {
+        if ($form_state['values']['entity_type'] == 'node') {
+          $array_value = 0;
+          foreach ($form_state['values']['node_taxonomy'] as $node_tid => $values) {
+            $array_value += $values;
+          }
           // Checking the taxonomies in a specific node.
-          $taxonomy_tids = _get_tids($form_state['values']['entity_id']);
-          if ($taxonomy_tids) {
-            foreach ($taxonomy_tids as $tids) {
-              $hash_delete = db_delete('total_subscription')
+          if ($form_state['values']['node_taxonomy'] && $array_value) {
+            foreach ($form_state['values']['node_taxonomy'] as $tid => $value) {
+              if ($value != 0) {
+                $checked_tids[] = $tid;
+              }
+            }
+            foreach ($checked_tids as $tids) {
+                $hash_delete = db_delete('total_subscription')
                     ->condition('mail', $form_state['values']['mail'])
                     ->condition('entity_type', 'taxonomy_term')
                     ->condition('entity_id', $tids)
@@ -377,13 +456,15 @@ function subscribe_form_submit($form, &$form_state) {
             }
           }
           // Checking only nodes.
-          $hash_delete = db_delete('total_subscription')
+          if ($form_state['values']['content_type_name'] == 1) {
+            $hash_delete = db_delete('total_subscription')
                     ->condition('mail', $form_state['values']['mail'])
                     ->condition('entity_type', $form_state['values']['entity_type'])
                     ->condition('entity_id', $form_state['values']['entity_id'])
                     ->execute();
+          }
         }
-        elseif ($form_state['values']['entity_type'] == 'taxonomy_term' && !empty($result)) {
+        elseif ($form_state['values']['entity_type'] == 'taxonomy_term') {
           $hash_delete = db_delete('total_subscription')
                     ->condition('mail', $form_state['values']['mail'])
                     ->condition('entity_type', $form_state['values']['entity_type'])
@@ -391,7 +472,6 @@ function subscribe_form_submit($form, &$form_state) {
                     ->execute();
         }
       }
-      drupal_set_message(t('You are unsubscribe. Further instruction will be send to your email. Hope you will return some day'), 'status', FALSE);
       break;
   }
 }
@@ -400,7 +480,7 @@ function subscribe_form_submit($form, &$form_state) {
  * Form validation.
  */
 function subscribe_form_validate($form, &$form_state) {
-  $query = db_select('total_subscription', 'ti');
+  /*$query = db_select('total_subscription', 'ti');
   $query->fields('ti', array('mail'))
         ->condition('mail', $form_state['values']['mail'])
         ->condition('entity_type', $form_state['values']['entity_type'])
@@ -420,7 +500,7 @@ function subscribe_form_validate($form, &$form_state) {
         form_set_error('unsubscribe', t('First, you have to subscribe, then you are allow to unsubscribe.'));
       }
       break;
-  }
+  }*/
 
   if (!valid_email_address($form_state['values']['mail'])) {
     form_set_error('mail', t('That e-mail address is not valid.'));
@@ -483,7 +563,30 @@ function total_subscription_mail($key, &$message, $params) {
       // as the body will later be transformed from HTML to text, meaning
       // that a normal use of '<' will result in truncation of the message.
       $message['body'][] = check_plain($params['message']);
-      $message['body'][] .= $base_url . '/verify?' . '&email=' . $params['mail'] . '&entity_type=' . $params['entity_type'] . '&entity_id=' . $params['entity_id'] . '&' . $params['op'] . '=' . $params['hash'];
+      $array_value = 0;
+        foreach ($params['node_taxonomy'] as $node_tid => $values) {
+          $array_value += $values;
+        }
+        // Checking the taxonomies.
+        if ($params['node_taxonomy'] && $array_value) {
+          foreach ($params['node_taxonomy'] as $tid => $value) {
+            if ($value != 0) {
+              $checked_tids[] = $tid;
+            }
+          }
+        }
+      if ($params['entity_type'] == "node") {
+        if ($params['content_type_name'] == 1) {
+          $params['entity_type'] = $params['entity_type'] . '-1';
+        }
+        else {
+          $params['entity_type'] = $params['entity_type'] . '-0';
+        }
+        $message['body'][] .= $base_url . '/verify?' . '&email=' . $params['mail'] . '&entity_type=' . $params['entity_type'] . '&entity_id=' . $params['entity_id'] . '&tids=' . serialize($checked_tids) . '&' . $params['op'] . '=' . $params['hash'] ;
+      }
+      elseif ($params['entity_type'] == "taxonomy_term") {
+        $message['body'][] .= $base_url . '/verify?' . '&email=' . $params['mail'] . '&entity_type=' . $params['entity_type'] . '-0' . '&entity_id=' . $params['entity_id'] . '&' . $params['op'] . '=' . $params['hash'] ;
+      }
       break;
 
     case 'total_subscription_node_message':
