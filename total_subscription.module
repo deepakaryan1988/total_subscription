@@ -67,7 +67,7 @@ function _verification_mail() {
         ->condition('entity_type', $_GET['entity_type'])
         ->condition('entity_id', $_GET['entity_id'])
         ->execute();
-      drupal_goto('node/'.$_GET['entity_id']);
+      drupal_goto('node/' . $_GET['entity_id']);
     }
     elseif ($_GET['entity_type'] == 'taxonomy_term' && !empty($result)) {
       $total_subscription = db_update('total_subscription')
@@ -78,7 +78,7 @@ function _verification_mail() {
                 ->condition('entity_type', $_GET['entity_type'])
                 ->condition('entity_id', $_GET['entity_id'])
                 ->execute();
-      drupal_goto('taxonomy/term/'.$_GET['entity_id']);
+      drupal_goto('taxonomy/term/' . $_GET['entity_id']);
     }
   }
   elseif (isset($_GET['Unsubscribe']) && !empty($result)) {
@@ -100,7 +100,7 @@ function _verification_mail() {
                 ->condition('entity_type', $_GET['entity_type'])
                 ->condition('entity_id', $_GET['entity_id'])
                 ->execute();
-      drupal_goto('node/'.$_GET['entity_id']);
+      drupal_goto('node/' . $_GET['entity_id']);
     }
     elseif ($_GET['entity_type'] == 'taxonomy_term' && !empty($result)) {
       $total_subscription = db_delete('total_subscription')
@@ -108,7 +108,7 @@ function _verification_mail() {
                 ->condition('entity_type', $_GET['entity_type'])
                 ->condition('entity_id', $_GET['entity_id'])
                 ->execute();
-      drupal_goto('taxonomy/term/'.$_GET['entity_id']);
+      drupal_goto('taxonomy/term/' . $_GET['entity_id']);
     }
   }
 }
@@ -203,7 +203,7 @@ function subscribe_form_submit($form, &$form_state) {
   global $user;
   switch ($form_state['input']['op']) {
     case 'Subscribe':
-      $hash = md5(rand(0,1000));
+      $hash = md5(rand(0, 1000));
       if ($form_state['values']['entity_type'] == "node") {
 
         // Query for the checking whether is already subscribe or not.
@@ -355,7 +355,7 @@ function subscribe_form_submit($form, &$form_state) {
         // Sending mails.
         total_subscription_mail_send($form_state['values']);
       }
-      else{
+      else {
         // Checking the hash thing.
         $hash_id = db_select('total_subscription', 'ts');
         $hash_id->fields('ts', array('bundle'))
@@ -365,31 +365,31 @@ function subscribe_form_submit($form, &$form_state) {
                 ->range(0, 1);
         $result = $hash_id->execute()->fetchObject();
         if ($form_state['values']['entity_type'] == 'node' && !empty($result)) {
-            // Checking the taxonomies in a specific node.
-            $taxonomy_tids = _get_tids($form_state['values']['entity_id']);
-            if ($taxonomy_tids) {
-              foreach ($taxonomy_tids as $tids) {
-                $hash_delete = db_delete('total_subscription')
-                      ->condition('mail', $form_state['values']['mail'])
-                      ->condition('entity_type', 'taxonomy_term')
-                      ->condition('entity_id', $tids)
-                      ->execute();
-              }
+          // Checking the taxonomies in a specific node.
+          $taxonomy_tids = _get_tids($form_state['values']['entity_id']);
+          if ($taxonomy_tids) {
+            foreach ($taxonomy_tids as $tids) {
+              $hash_delete = db_delete('total_subscription')
+                    ->condition('mail', $form_state['values']['mail'])
+                    ->condition('entity_type', 'taxonomy_term')
+                    ->condition('entity_id', $tids)
+                    ->execute();
             }
-            // Checking only nodes.
-            $hash_delete = db_delete('total_subscription')
-                      ->condition('mail', $form_state['values']['mail'])
-                      ->condition('entity_type', $form_state['values']['entity_type'])
-                      ->condition('entity_id', $form_state['values']['entity_id'])
-                      ->execute();
           }
-          elseif ($form_state['values']['entity_type'] == 'taxonomy_term' && !empty($result)) {
-            $hash_delete = db_delete('total_subscription')
-                      ->condition('mail', $form_state['values']['mail'])
-                      ->condition('entity_type', $form_state['values']['entity_type'])
-                      ->condition('entity_id', $form_state['values']['entity_id'])
-                      ->execute();
-          }
+          // Checking only nodes.
+          $hash_delete = db_delete('total_subscription')
+                    ->condition('mail', $form_state['values']['mail'])
+                    ->condition('entity_type', $form_state['values']['entity_type'])
+                    ->condition('entity_id', $form_state['values']['entity_id'])
+                    ->execute();
+        }
+        elseif ($form_state['values']['entity_type'] == 'taxonomy_term' && !empty($result)) {
+          $hash_delete = db_delete('total_subscription')
+                    ->condition('mail', $form_state['values']['mail'])
+                    ->condition('entity_type', $form_state['values']['entity_type'])
+                    ->condition('entity_id', $form_state['values']['entity_id'])
+                    ->execute();
+        }
       }
       drupal_set_message(t('You are unsubscribe. Further instruction will be send to your email. Hope you will return some day'), 'status', FALSE);
       break;
@@ -410,15 +410,15 @@ function subscribe_form_validate($form, &$form_state) {
   switch ($form_state['input']['op']) {
     case 'Subscribe':
       // Query for the checking whether is already subscribe or not.
-        if($result){
-          form_set_error('subscribe', t('You are already subscribed.'));
-        }
+      if ($result) {
+        form_set_error('subscribe', t('You are already subscribed.'));
+      }
       break;
 
     case 'Unsubscribe':
-      if(empty($result)){
-          form_set_error('unsubscribe', t('First, you have to subscribe, then you are allow to unsubscribe.'));
-        }
+      if (empty($result)) {
+        form_set_error('unsubscribe', t('First, you have to subscribe, then you are allow to unsubscribe.'));
+      }
       break;
   }
 
@@ -487,8 +487,6 @@ function total_subscription_mail($key, &$message, $params) {
       break;
 
     case 'total_subscription_node_message':
-      error_log(print_r($params),TRUE);
-      error_log(print_r($message),TRUE);
       $message['subject'] = 'chutya';
       $message['body'] = 'hii';
       // Because this is just user-entered text, we do not need to translate it.
@@ -560,7 +558,7 @@ function total_subscription_mail_send($form_values) {
  * Implements hook_node_presave().
  */
 function total_subscription_node_presave($node) {
-  if(($node->original->status == 0 && $node->status == 1) || $node->status == 1){
+  if (($node->original->status == 0 && $node->status == 1) || $node->status == 1) {
     total_subscription_node_mail($node);
   }
 }
