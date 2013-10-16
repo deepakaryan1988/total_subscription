@@ -790,7 +790,6 @@ function total_subscription_mail_send($form_values) {
  * Implements hook_node_presave().
  */
 function total_subscription_node_presave($node) {
-  echo "<pre>";print_r($node);exit;
   if (($node->original->status == 0 && $node->status == 1) || ($node->is_new == 1 && $node->status == 1)) {
     total_subscription_node_mail($node);
   }
